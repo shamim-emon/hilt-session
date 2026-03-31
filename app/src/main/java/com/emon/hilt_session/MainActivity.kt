@@ -22,13 +22,21 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import com.emon.hilt_session.ui.theme.HiltsessionTheme
 import dagger.hilt.android.AndroidEntryPoint
+import javax.inject.Inject
 
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {
-    private val snackbarManager = WeatherSnackbarManager(this)
-    private val locationProvider: LocationProvider = FakeLocationProvider()
+    @Inject
+    lateinit var  snackbarManager : WeatherSnackbarManager
+    @Inject
+    lateinit var  locationProvider: LocationProvider
+
+    @Inject
+    lateinit var snackbarHostState: SnackbarHostState
+
 
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -36,8 +44,6 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
         setContent {
             HiltsessionTheme {
-                val snackbarHostState = remember { SnackbarHostState() }
-
                 Scaffold(
                     modifier = Modifier.fillMaxSize(),
                     snackbarHost = { SnackbarHost(hostState = snackbarHostState) }
@@ -61,10 +67,7 @@ fun WeatherScreen(
     locationProvider: LocationProvider,
     modifier: Modifier = Modifier
 ) {
-    val randomTemperatureProvider = RandomTemperatureProvider()
-    val repository = FakeWeatherRepository(randomTemperatureProvider)
-    val temperatureFormatter = CelsiusTemperatureFormatter()
-    val viewModel = remember { WeatherViewModel(repository, temperatureFormatter) }
+    val viewModel = hiltViewModel<WeatherViewModel>()
 
     val state = viewModel.uiState.collectAsState()
 

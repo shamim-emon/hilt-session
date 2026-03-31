@@ -1,21 +1,26 @@
 package com.emon.hilt_session
 
 import androidx.lifecycle.ViewModel
-import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
+import com.emon.hilt_session.di.qualifier.Fahrenheit
+import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.launch
+import javax.inject.Inject
 
-class WeatherViewModel(
+@HiltViewModel
+class WeatherViewModel @Inject constructor(
     private val repository: WeatherRepository,
-    private val temperatureFormatter: TemperatureFormatter
+    @Fahrenheit private val temperatureFormatter: TemperatureFormatter
 ) : ViewModel() {
     private var _uiState = MutableStateFlow(UIState())
-    private var _effect = MutableSharedFlow<Effect>()
-    val effect = _effect.asSharedFlow()
+    private var _effect = Channel<Effect>()
+    val effect = _effect.receiveAsFlow()
 
     val uiState = _uiState.asStateFlow()
 
@@ -33,19 +38,19 @@ class WeatherViewModel(
             repository.getTemperatureInCelsius(location).collect {
                 when (it) {
                     is ApiResult.Loading -> {
-                        _effect.emit(Effect.ShowSnackbar("Loading Weather Data"))
+                        _effect.send(Effect.ShowSnackbar("Loading Weather Data"))
                         _uiState.value =
                             _uiState.value.copy(temperature = "", isLoading = true, error = "")
                     }
 
                     is ApiResult.Success -> {
-                        _effect.emit(Effect.ShowSnackbar("Successfully loaded Weather Data"))
+                        _effect.send(Effect.ShowSnackbar("Successfully loaded Weather Data"))
                         _uiState.value =
                             _uiState.value.copy(temperature = temperatureFormatter.formatTemperature(it.data), isLoading = false, error = "")
                     }
 
                     is ApiResult.Error -> {
-                        _effect.emit(Effect.ShowSnackbar("Error loading Weather Data"))
+                        _effect.send(Effect.ShowSnackbar("Error loading Weather Data"))
                         _uiState.value =
                             _uiState.value.copy(temperature = "", isLoading = true, error = "Error!")
                     }
@@ -70,19 +75,4 @@ data class UIState(
 
 sealed class Effect {
     data class ShowSnackbar(val message: String) : Effect()
-}
-
-
-class WeatherViewModelFactory(
-    private val repository: WeatherRepository,
-    private val temperatureFormatter: TemperatureFormatter,
-) : ViewModelProvider.Factory {
-
-    override fun <T : ViewModel> create(modelClass: Class<T>): T {
-        if (modelClass.isAssignableFrom(WeatherViewModel::class.java)) {
-            @Suppress("UNCHECKED_CAST")
-            return WeatherViewModel(repository,temperatureFormatter) as T
-        }
-        throw IllegalArgumentException("Unknown ViewModel class")
-    }
 }
